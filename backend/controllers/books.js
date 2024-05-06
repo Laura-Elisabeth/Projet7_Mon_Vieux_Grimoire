@@ -24,58 +24,28 @@ exports.getOneBook = (req, res, next) => {
 };
 
 exports.rateBook = (req, res, next) => {
-  /* const rating = new Rating({
-    ...req.body,
-    grade: req.body.rating
-  });
-  delete rating._id;
-  Book.findOne({ _id: req.params.id })
-    .then((book) => {
-      if ( req.body.rating < 0 && req.body.rating > 5 ){
-        res.status(403).json({ message: 'Not authorized'});
-      } else {
-        const bookObject = book;
-        Rating.find()
-        .then((ratings) => {
-        ratings.push(rating);
-        let sum = 0;
-        ratings.grade.forEach( rating => {
-          sum+= rating;
-        });
-        averageRating = sum / ratings.lenght;
-        Book.updateOne({_id: req.params.id}, { ...bookObject, _id: req.params.id})
-        .then((book) => res.status(201).json({ book }))
-        .catch(error => res.status(400).json({ error }))
-        })
-        .catch(error => res.status(400).json({ error }))
-      }
-    })
-    .catch(error => res.status(400).json({ error }));
-    */
-       // On vérifie que la note est comprise entre 0 et 5
+  
        if (0 <= req.body.rating <= 5) {
-        // Stockage de la requête dans une constante
 
     const ratingObject = { ...req.body, grade: req.body.rating };
-        // Suppression du faux _id envoyé par le front
         delete ratingObject._id;
-        // Récupération du livre auquel on veut ajouter une note
+        
         Book.findOne({_id: req.params.id})
             .then(book => {
-                // Création d'un tableau regroupant toutes les userId des utilisateurs ayant déjà noté le livre en question
+                
                 const newRatings = book.ratings;
                 const userIdArray = newRatings.map(rating => rating.userId);
-                // On vérifie que l'utilisateur authentifié n'a jamais donné de note au livre en question
+                
                 if (userIdArray.includes(req.auth.userId)) {
                     res.status(403).json({ message : 'Not authorized' });
                 } else {
-                    // Ajout de la note
+                    
                     newRatings.push(ratingObject);
-                    // Création d'un tableau regroupant toutes les notes du livre, et calcul de la moyenne des notes
+                   
                     const grades = newRatings.map(rating => rating.grade);
                     const averageGrades = average.average(grades);
                     book.averageRating = averageGrades;
-                    // Mise à jour du livre avec la nouvelle note ainsi que la nouvelle moyenne des notes
+                    
                     Book.updateOne({ _id: req.params.id }, { ratings: newRatings, averageRating: averageGrades, _id: req.params.id })
                         .then(() => { res.status(201).json()})
                         .catch(error => { res.status(400).json( { error })});
@@ -141,4 +111,17 @@ exports.getAllBooks = (req, res, next) => {
         });
       }
     );
+};
+
+exports.getBestRatings = async (req, res, next) => {
+  try {
+       const bestRatings = await Book.aggregate([
+            { $addFields: { ratingsLength: "$ratings.length" } }, 
+            { $sort: { averageRating: -1, ratingsLength: -1 } }, 
+            { $limit: 2 }, 
+       ]);
+       res.status(200).json(bestRatings);
+  } catch (error) {
+       res.status(400).json({ error });
+  }
 };
